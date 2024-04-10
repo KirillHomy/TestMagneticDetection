@@ -1,0 +1,12 @@
+{
+  "images" : [
+    {
+      "filename" : "device_details_connect_image.pdf",
+      "idiom" : "universal"
+    }
+  ],
+  "info" : {
+    "author" : "xcode",
+    "version" : 1
+  }
+}
