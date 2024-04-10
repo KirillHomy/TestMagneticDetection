@@ -19,25 +19,18 @@ class DetailView: UIView {
     }
     private let topStackLabel = UILabel().then {
         $0.textAlignment = .center
-        $0.textColor = .white
         $0.font = .font(.bold700, 28.0)
-        $0.text = "Current Wi-Fi"
     }
     private let bottomStackLabel = UILabel().then {
         $0.textAlignment = .center
-        $0.textColor = .init(hex: "7158DA")
+        $0.textColor = .white
         $0.font = .font(.regular400, 15.0)
-        $0.text = "WIFI_Name"
     }
-    private lazy var tableView = UITableView().then {
-        $0.dataSource = self
-        $0.delegate = self
-        $0.backgroundColor = .clear
-        $0.separatorStyle = .none
-        $0.showsVerticalScrollIndicator = false
-        $0.register(DetailTableViewCell.self, forCellReuseIdentifier: "DetailTableViewCell")
-        $0.layer.cornerRadius = 8.0
-    }
+    private let connectInfoView = InfoView()
+    private let ipInfoView = InfoView()
+    private let macInfoView = InfoView()
+    private let hostnameInfoView = InfoView()
+
 
     // MARK: - Life cycle
     override init(frame: CGRect) {
@@ -54,8 +47,15 @@ class DetailView: UIView {
 // MARK: - Interface methods
 extension DetailView {
 
-    func didTapScanButton(_ targget: Any?, action: Selector, for event: UIControl.Event) {
-//        scanButton.addTarget(targget, action: action, for: event)
+    func configure(model: ResultModel) {
+        topStackLabel.text = model.deviceName
+        topStackLabel.textColor = model.isConnect ? UIColor.init(hex: "7158DA") : UIColor.init(hex: "ED0018")
+        bottomStackLabel.text = model.ipAddress
+        connectInfoView.configure(title: "Connection Type", description: model.connectionType)
+        ipInfoView.configure(title: "IP Address", description: model.ipAddress)
+        macInfoView.configure(title: "MAC Address", description: model.macAddress)
+        hostnameInfoView.configure(title: "Hostname", description: model.hostname, is: true)
+
     }
 }
 
@@ -71,7 +71,7 @@ private extension DetailView {
     func setupAddSuview() {
         topStackView.addArrangedSubview(topStackLabel)
         topStackView.addArrangedSubview(bottomStackLabel)
-        [topStackView, tableView].forEach {
+        [topStackView, connectInfoView, ipInfoView, macInfoView, hostnameInfoView].forEach {
             addSubview($0)
         }
     }
@@ -83,9 +83,26 @@ private extension DetailView {
             $0.width.equalToSuperview()
             $0.height.equalTo(54.0)
         }
-        tableView.snp.makeConstraints {
+        connectInfoView.snp.makeConstraints {
             $0.top.equalTo(topStackView.snp.bottom).inset(-24.0)
-            $0.left.right.bottom.equalToSuperview()
+            $0.left.right.equalToSuperview()
+            $0.height.equalTo(48.0)
+        }
+        ipInfoView.snp.makeConstraints {
+            $0.top.equalTo(connectInfoView.snp.bottom)
+            $0.left.right.equalToSuperview()
+            $0.height.equalTo(48.0)
+        }
+        macInfoView.snp.makeConstraints {
+            $0.top.equalTo(ipInfoView.snp.bottom)
+            $0.left.right.equalToSuperview()
+            $0.height.equalTo(48.0)
+        }
+        hostnameInfoView.snp.makeConstraints {
+            $0.top.equalTo(macInfoView.snp.bottom)
+            $0.left.right.equalToSuperview()
+            $0.height.equalTo(48.0)
+            $0.bottom.equalToSuperview()
         }
     }
 
@@ -94,27 +111,3 @@ private extension DetailView {
         layer.cornerRadius = 8.0
     }
 }
-
-// MARK: - UITableViewDelegate
-extension DetailView: UITableViewDelegate {
-
-    func tableView(_ tableView: UITableView, heightForRowAt indexPath: IndexPath) -> CGFloat {
-        return 54.0
-    }
-}
-
-// MARK: - UITableViewDataSource
-extension DetailView: UITableViewDataSource {
-
-    func tableView(_ tableView: UITableView, numberOfRowsInSection section: Int) -> Int {
-        return resultModel.count
-    }
-
-    func tableView(_ tableView: UITableView, cellForRowAt indexPath: IndexPath) -> UITableViewCell {
-        let cell = tableView.dequeueReusableCell(withIdentifier: "DetailTableViewCell", for: indexPath) as! DetailTableViewCell
-        let lastItemIndexPath = IndexPath(row: tableView.numberOfRows(inSection: indexPath.section) - 1, section: indexPath.section)
-        cell.configure(model: resultModel[indexPath.row], is: indexPath == lastItemIndexPath)
-        return cell
-    }
-}
-

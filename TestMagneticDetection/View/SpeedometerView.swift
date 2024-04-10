@@ -11,35 +11,28 @@ import SnapKit
 
 class SpeedometerView: UIView {
 
-    var rotation: CGFloat = .pi
-    var totalAngle: CGFloat = 2 * .pi
+    // MARK: - Private property
+    private let triangleLayer = CAShapeLayer()
+    private var rotation: CGFloat =  3 * CGFloat.pi / 2.03
+    private var totalAngle: CGFloat = .pi
+    private var outerCenterDiscColor = UIColor.white
+    private var outerCenterDiscWidth: CGFloat = 32
 
+    // MARK: - Interface property
     var value: Int = 0 {
         didSet {
-            // figure out where the needle is, between 0 and 1
             let needlePosition = CGFloat(value) / 100
 
-            // create a lerp from the start angle (rotation) through to the end angle (rotation + totalAngle)
-            let lerpFrom = rotation
-            let lerpTo = rotation + totalAngle
+            let startAngle: CGFloat = 0
+            let endAngle = totalAngle
 
-            // lerp from the start to the end position, based on the needle's position
-            let needleRotation = lerpFrom + (lerpTo - lerpFrom) * needlePosition
-            needle.transform = CGAffineTransform(rotationAngle: deg2rad(needleRotation))
+            let needleRotation = startAngle + (endAngle - startAngle) * needlePosition
+            
+            animateRotation(needleRotation: needleRotation)
         }
     }
 
-    func deg2rad(_ number: CGFloat) -> CGFloat {
-        return number * .pi / 180
-    }
-
-    var outerCenterDiscColor = UIColor.white
-    var outerCenterDiscWidth: CGFloat = 32
-
-    var needleColor = UIColor(white: 0.7, alpha: 1)
-    var needleWidth: CGFloat = 4
-    let needle = NeedleView()
-
+    // MARK: - Draw
     override func draw(_ rect: CGRect) {
         super.draw(rect)
         
@@ -50,35 +43,62 @@ class SpeedometerView: UIView {
         drawOuterRing()
         drawTriangles()
     }
+}
 
+// MARK: - Private methods
+private extension SpeedometerView {
+    
     func drawArrow() {
-        // Определяем точки для стрелки
+        // 1
         let arrowWidth: CGFloat = 7.0
         let arrowHeight: CGFloat = bounds.width / 6.0
+        // 2
+        let frame = CGRect(x: bounds.midX,
+                           y: bounds.midY,
+                           width: 0,
+                           height: 0)
+        
+        triangleLayer.frame = frame
+        
+        // 3
+        let needlePath = UIBezierPath()
+        needlePath.move(to: CGPoint(x: arrowWidth / 2, y: 0))
+        needlePath.addLine(to: CGPoint(x: arrowWidth / 2, y: -arrowHeight))
+        needlePath.addLine(to: CGPoint(x: -arrowWidth / 2, y: 0))
+        
+        needlePath.close()
+        let rotationAngle = rotation
+        
+        needlePath.apply(CGAffineTransform(rotationAngle: rotationAngle))
 
-        // Создаем контекст рисования
-        guard let ctx = UIGraphicsGetCurrentContext() else { return }
+        // 4
+        triangleLayer.path = needlePath.cgPath
         
-        // Сохраняем состояние контекста
-        ctx.saveGState()
+        // 5
+        triangleLayer.fillColor = UIColor.white.cgColor
+        triangleLayer.strokeColor = UIColor.white.cgColor
+        // 6
+        layer.addSublayer(triangleLayer)
         
-        // Перемещаем начало координат в центр прямоугольника
-        ctx.translateBy(x: bounds.midX, y: bounds.midY)
-        
-        // Определяем путь для стрелки
-        let arrowPath = UIBezierPath()
-        arrowPath.move(to: CGPoint(x: arrowWidth / 2, y: 0))
-        arrowPath.addLine(to: CGPoint(x: arrowWidth / 2, y: -arrowHeight))
-        arrowPath.addLine(to: CGPoint(x: -arrowWidth / 2, y: 0))
-        arrowPath.close()
-        
-        // Заливаем стрелку цветом
-        ctx.setFillColor(UIColor.white.cgColor)
-        ctx.addPath(arrowPath.cgPath)
-        ctx.fillPath()
-        
-        // Восстанавливаем состояние контекста
-        ctx.restoreGState()
+        // 7 П
+        triangleLayer.transform = CATransform3DMakeRotation(0, 0, 0, 1)
+    }
+
+    func animateRotation(needleRotation: CGFloat) {
+        guard let presentationLayer = triangleLayer.presentation(), let currentRotation = presentationLayer.value(forKeyPath: "transform.rotation.z") as? CGFloat else {
+            return
+        }
+
+        let spinAnimation = CABasicAnimation(keyPath: "transform.rotation.z")
+        spinAnimation.fromValue = currentRotation
+        spinAnimation.toValue = needleRotation
+        spinAnimation.duration = 0.5 // Продолжительность анимации
+        spinAnimation.timingFunction = CAMediaTimingFunction(name: CAMediaTimingFunctionName.easeInEaseOut)
+
+        CATransaction.begin()
+        triangleLayer.transform = CATransform3DMakeRotation(needleRotation, 0, 0, 1)
+        triangleLayer.add(spinAnimation, forKey: "rotationAnimation")
+        CATransaction.commit()
     }
 
     func drawCenterDisc() {
@@ -87,7 +107,7 @@ class SpeedometerView: UIView {
         ctx.saveGState()
         ctx.translateBy(x: bounds.midX, y: bounds.midY)
 
-        let outerCenterRect = CGRect(x: -outerCenterDiscWidth / 2, 
+        let outerCenterRect = CGRect(x: -outerCenterDiscWidth / 2,
                                      y: -outerCenterDiscWidth / 2,
                                      width: outerCenterDiscWidth,
                                      height: outerCenterDiscWidth)
@@ -103,7 +123,7 @@ class SpeedometerView: UIView {
         let radius = circleFrame / 2
 
         let outerCirclePath = UIBezierPath(arcCenter: center,
-                                           radius: radius - 4.0, // Отступ для внутреннего кольца
+                                           radius: radius - 4.0,
                                            startAngle: .pi,
                                            endAngle: .pi * 2,
                                            clockwise: true)
@@ -123,46 +143,38 @@ class SpeedometerView: UIView {
         let circleFrame = UIScreen.main.bounds.width - 20 * 2
         let radius = circleFrame / 2.0 - 24.0
 
-        let triangleHeight: CGFloat = -24.0 // Отрицательная высота треугольника для приближения к центру
-        let triangleBase: CGFloat = 6.0 // Длина основания треугольника
+        let triangleHeight: CGFloat = -24.0
+        let triangleBase: CGFloat = 6.0
         let triangleColor = UIColor.white.cgColor
         
-        // Угол между метками
-        let angleStep = CGFloat.pi / 12.0 // Например, для 12 меток
+        let angleStep = CGFloat.pi / 12.0
         
-        // Получаем текущий контекст
         guard let ctx = UIGraphicsGetCurrentContext() else { return }
         
-        // Сохраняем состояние контекста
         ctx.saveGState()
         
-        // Устанавливаем параметры рисования
         ctx.setFillColor(triangleColor)
         
-        // Отрисовываем треугольники
-        let triangleAngle = asin(triangleBase / (2 * radius)) // Угол между наконечником треугольника и осью x
+        let triangleAngle = asin(triangleBase / (2 * radius))
         
         for i in 0..<13 {
             let angle = CGFloat(i) * angleStep
-            let startX = center.x + (radius - triangleHeight) * cos(angle - triangleAngle) // Поворачиваем на угол triangleAngle
-            let startY = center.y - (radius - triangleHeight) * sin(angle - triangleAngle) // Поворачиваем на угол triangleAngle
+            let startX = center.x + (radius - triangleHeight) * cos(angle - triangleAngle)
+            let startY = center.y - (radius - triangleHeight) * sin(angle - triangleAngle)
             let topX = center.x + radius * cos(angle)
             let topY = center.y - radius * sin(angle)
-            let endX = center.x + (radius - triangleHeight) * cos(angle + triangleAngle) // Поворачиваем на угол triangleAngle
-            let endY = center.y - (radius - triangleHeight) * sin(angle + triangleAngle) // Поворачиваем на угол triangleAngle
+            let endX = center.x + (radius - triangleHeight) * cos(angle + triangleAngle)
+            let endY = center.y - (radius - triangleHeight) * sin(angle + triangleAngle)
             
-            // Создаем путь для треугольника
             let path = UIBezierPath()
             path.move(to: CGPoint(x: startX, y: startY))
             path.addLine(to: CGPoint(x: topX, y: topY))
             path.addLine(to: CGPoint(x: endX, y: endY))
             path.close()
             
-            // Заливаем треугольник цветом
             ctx.addPath(path.cgPath)
             ctx.fillPath()
         }
-        // Восстанавливаем состояние контекста
         ctx.restoreGState()
     }
 
@@ -237,88 +249,5 @@ class SpeedometerView: UIView {
         innerGradientLayer.mask = innerMaskLayer
 
         layer.addSublayer(innerGradientLayer)
-    }
-}
-
-extension UIColor {
-    convenience init(hex: String) {
-        var hexSanitized = hex.trimmingCharacters(in: .whitespacesAndNewlines)
-        hexSanitized = hexSanitized.replacingOccurrences(of: "#", with: "")
-
-        var rgb: UInt64 = 0
-
-        Scanner(string: hexSanitized).scanHexInt64(&rgb)
-
-        let red = CGFloat((rgb & 0xFF0000) >> 16) / 255.0
-        let green = CGFloat((rgb & 0x00FF00) >> 8) / 255.0
-        let blue = CGFloat(rgb & 0x0000FF) / 255.0
-
-        self.init(red: red, green: green, blue: blue, alpha: 1.0)
-    }
-}
-
-
-class NeedleView: UIView {
-    
-    let needle = UIView()
-    
-    override init(frame: CGRect) {
-        super.init(frame: frame)
-
-        setupSubviews()
-    }
-    
-    required init?(coder aDecoder: NSCoder) {
-        super.init(coder: aDecoder)
-
-        setupSubviews()
-    }
-
-    override func draw(_ rect: CGRect) {
-        super.draw(rect)
-
-        setupSubviews()
-    }
-    
-    private func setupSubviews() {
-        addSubview(needle)
-
-        drawArrow()
-    }
-    
-    override func layoutSubviews() {
-        super.layoutSubviews()
-        // Размещаем иглу (needle) поверх всех вью
-        bringSubviewToFront(needle)
-    }
-    
-    func drawArrow() {
-        // Определяем точки для стрелки
-        let arrowWidth: CGFloat = 7.0
-        let arrowHeight: CGFloat = bounds.width / 6.0
-
-        // Создаем контекст рисования
-        guard let ctx = UIGraphicsGetCurrentContext() else { return }
-        
-        // Сохраняем состояние контекста
-        ctx.saveGState()
-        
-        // Перемещаем начало координат в центр прямоугольника
-        ctx.translateBy(x: bounds.midX, y: bounds.midY)
-        
-        // Определяем путь для стрелки
-        let arrowPath = UIBezierPath()
-        arrowPath.move(to: CGPoint(x: arrowWidth / 2, y: 0))
-        arrowPath.addLine(to: CGPoint(x: arrowWidth / 2, y: -arrowHeight))
-        arrowPath.addLine(to: CGPoint(x: -arrowWidth / 2, y: 0))
-        arrowPath.close()
-        
-        // Заливаем стрелку цветом
-        ctx.setFillColor(UIColor.red.cgColor)
-        ctx.addPath(arrowPath.cgPath)
-        ctx.fillPath()
-        
-        // Восстанавливаем состояние контекста
-        ctx.restoreGState()
     }
 }

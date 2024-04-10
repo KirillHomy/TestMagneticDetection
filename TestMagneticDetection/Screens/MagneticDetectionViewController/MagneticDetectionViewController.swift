@@ -11,17 +11,30 @@ import Then
 
 class MagneticDetectionViewController: UIViewController {
 
+    // MARK: - Private property
+    private var timer: Timer?
+    private var isStart = true
+    
     // MARK: - Private UI elements
     private let magneticTopImageView = UIImageView().then {
         $0.image = .magneticTop
         $0.contentMode = .scaleAspectFill
     }
     private let speedometerView = SpeedometerView()
-    private let startButton = UIButton().then {
+    private lazy var startButton = UIButton().then {
         $0.backgroundColor = .init(hex: "7158DA")
         $0.layer.cornerRadius = 25.0
         $0.titleLabel?.font = .font(.bold700, 20.0)
         $0.setTitle("Search", for: .normal)
+        $0.addTarget(self, action: #selector(didTapStartButton), for: .touchUpInside)
+    }
+    private let testLabel = UILabel().then {
+        $0.text = "Search checking"
+        $0.font = .font(.medium500, 17.0)
+        $0.textColor = .white
+        $0.textAlignment = .center
+        $0.numberOfLines = 1
+        $0.adjustsFontSizeToFitWidth = true
     }
 
     // MARK: - Life cycle
@@ -29,32 +42,10 @@ class MagneticDetectionViewController: UIViewController {
         super.viewDidLoad()
 
         setupView()
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 1) {
-//            UIView.animate(withDuration: 1) {
-//                self.gaudeView.value = 0
-//            }
-//        }
-//
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 2) {
-//            UIView.animate(withDuration: 1) {
-//                self.gaudeView.value = 50
-//            }
-//        }
-//
-//        DispatchQueue.main.asyncAfter(deadline: .now() + 3) {
-//            UIView.animate(withDuration: 1) {
-//                self.gaudeView.value = 100
-//            }
-//        }
     }
-    
-//    override func viewDidLayoutSubviews() {
-//        super.viewDidLayoutSubviews()
-//        
-//        gaudeView.drawTriangles()
-//    }
 }
 
+// MARK: - Private methods
 private extension MagneticDetectionViewController {
 
     func setupView() {
@@ -65,9 +56,9 @@ private extension MagneticDetectionViewController {
     }
 
     func setupAddSubview() {
-        view.addSubview(magneticTopImageView)
-        view.addSubview(speedometerView)
-        view.addSubview(startButton)
+        [magneticTopImageView, speedometerView, startButton, testLabel].forEach {
+            view.addSubview($0)
+        }
     }
 
     func setupConstraints() {
@@ -77,13 +68,19 @@ private extension MagneticDetectionViewController {
             $0.height.equalTo(329.0)
         }
         speedometerView.snp.makeConstraints {
-            $0.top.equalTo(magneticTopImageView.snp.bottom).inset(-62.0)
+            $0.top.equalTo(magneticTopImageView.snp.bottom).inset(UIScreen.main.bounds.height <= 667 ? 0.0 : -62.0)
             $0.size.equalTo(view.snp.width)
         }
         startButton.snp.makeConstraints {
             $0.height.equalTo(50.0)
             $0.left.right.equalToSuperview().inset(20.0)
-            $0.bottom.equalToSuperview().inset(70.0)
+            $0.bottom.equalToSuperview().inset(UIScreen.main.bounds.height <= 667 ? 0.05 * view.bounds.height : 70.0)
+        }
+        testLabel.snp.makeConstraints {
+            $0.width.equalTo(120.0)
+            $0.height.equalTo(20.0)
+            $0.centerX.equalToSuperview()
+            $0.bottom.equalTo(startButton.snp.top).inset(UIScreen.main.bounds.height <= 667 ? -15.0 : -87.0)
         }
     }
 
@@ -95,10 +92,48 @@ private extension MagneticDetectionViewController {
         navigationController.navigationBar.isTranslucent = true
         navigationController.navigationBar.tintColor = UIColor(hex: "7158D8")
         navigationItem.title = "Magnetic Detection"
-        navigationController.navigationBar.titleTextAttributes = [NSAttributedString.Key.foregroundColor: UIColor.white]
+        navigationController.navigationBar.titleTextAttributes = [.foregroundColor: UIColor.white,
+                                                                  .font: UIFont.font(.bold700, 17.0)]
     }
 
     func setupViewSettings() {
         view.backgroundColor = .init(hex: "070616")
+    }
+
+    func startTimer() {
+        timer = Timer.scheduledTimer(timeInterval: 1, target: self, selector: #selector(updateValue), userInfo: nil, repeats: true)
+        DispatchQueue.main.asyncAfter(deadline: .now() + 10) {
+            self.stopTimer()
+        }
+    }
+
+    func stopTimer() {
+        timer?.invalidate()
+        timer = nil
+        self.speedometerView.value = 0
+        testLabel.text = "Search checking"
+        startButton.setTitle("Search", for: .normal)
+    }
+}
+
+// MARK: - Objc
+@objc extension MagneticDetectionViewController {
+
+    func updateValue() {
+        let randomValue = CGFloat(arc4random_uniform(101))
+        speedometerView.value = Int(randomValue)
+        testLabel.text = "\(randomValue) µT"
+    }
+
+    func didTapStartButton() {
+        isStart.toggle()
+        if isStart {
+            stopTimer()
+            startButton.setTitle("Search", for: .normal)
+        } else {
+            startTimer()
+        }
+        startButton.setTitle(isStart ? "Search" : "Stop", for: .normal)
+        testLabel.text = isStart ? "Search checking" : "0 µT"
     }
 }
